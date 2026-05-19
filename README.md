@@ -137,6 +137,19 @@ uv run mcp dev src/trello_mcp/server.py
 
 This launches the server and opens a browser UI (proxy on a local port) where you can list tools, fill in arguments, and see the JSON responses. Make sure `.env` is set up first or the tools will error on the missing credentials.
 
+### Terminal client — `scripts/call.py`
+
+A small stdio client for calling tools straight from a shell, no browser:
+
+```bash
+uv run python scripts/call.py --list                          # list available tools
+uv run python scripts/call.py list_boards                     # no arguments
+uv run python scripts/call.py list_lists board_id=abc123      # one argument
+uv run python scripts/call.py get_cards list_id=xyz789        # one argument
+```
+
+Output is the tool's JSON response, pretty-printed. Useful for ad-hoc inspection and shell pipelines (`uv run python scripts/call.py list_boards | jq '.[].name'`).
+
 Install git hooks (optional) so ruff + pyright run on every commit:
 
 ```bash
