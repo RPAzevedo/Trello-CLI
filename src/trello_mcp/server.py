@@ -2,7 +2,10 @@ import os
 from typing import Any
 
 import httpx
+from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+
+load_dotenv()
 
 TRELLO_API_BASE = "https://api.trello.com/1"
 

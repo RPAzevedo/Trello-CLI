@@ -34,9 +34,25 @@ uv sync
 
 `uv sync` creates `.venv/`, installs runtime + dev deps from `pyproject.toml`, and exposes a `trello-mcp` console script. Run the server directly with `uv run trello-mcp`.
 
-## 3. Configure your MCP client
+## 3. Configure credentials
 
-The server reads `TRELLO_API_KEY` and `TRELLO_TOKEN` from the environment.
+The server reads `TRELLO_API_KEY` and `TRELLO_TOKEN` from the environment. You have two options.
+
+### Option A — `.env` file (recommended for local use)
+
+Copy the template and fill in your key and token:
+
+```bash
+cp .env.example .env
+```
+
+`.env` is git-ignored. The server auto-loads it on startup via `python-dotenv`, walking up from the current working directory. As long as your MCP client launches the server with `cwd` set to the project root (or you `cd` there before running), you're done — no need to put secrets in the client config.
+
+### Option B — env vars in the MCP client config
+
+Pass them inline in your client's MCP server config (see next section).
+
+## 4. Configure your MCP client
 
 ### Claude Desktop
 
@@ -46,26 +62,28 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) a
 {
   "mcpServers": {
     "trello": {
-      "command": "/absolute/path/to/trello-mcp/.venv/bin/trello-mcp",
-      "env": {
-        "TRELLO_API_KEY": "your_key_here",
-        "TRELLO_TOKEN": "your_token_here"
-      }
+      "command": "uv",
+      "args": ["--directory", "/absolute/path/to/trello-mcp", "run", "trello-mcp"]
     }
   }
 }
 ```
 
-Restart Claude Desktop. The `trello` server should appear in the MCP indicator.
+`uv --directory` sets the working directory before launching, so the `.env` file is picked up automatically. Restart Claude Desktop after editing.
 
-Alternatively, let uv resolve the environment at launch — useful if you don't want to hard-code the venv path:
+If you'd rather keep secrets in the client config instead of `.env`, add an `env` block:
 
 ```json
-"command": "uv",
-"args": ["--directory", "/absolute/path/to/trello-mcp", "run", "trello-mcp"]
+"env": { "TRELLO_API_KEY": "...", "TRELLO_TOKEN": "..." }
 ```
 
 ### Claude Code
+
+```bash
+claude mcp add trello -- uv --directory /absolute/path/to/trello-mcp run trello-mcp
+```
+
+Or with inline env vars (skips `.env`):
 
 ```bash
 claude mcp add trello \
@@ -76,13 +94,13 @@ claude mcp add trello \
 
 ### Any other MCP client
 
-Run the binary directly as a stdio server:
+Run the binary as a stdio server from the project directory (so `.env` is found):
 
 ```bash
-TRELLO_API_KEY=... TRELLO_TOKEN=... trello-mcp
+cd /absolute/path/to/trello-mcp && uv run trello-mcp
 ```
 
-## 4. Try it
+## 5. Try it
 
 In your client, ask something like:
 
@@ -108,6 +126,16 @@ uv run ruff format .          # format
 uv run pyright                # type check
 uv run pytest                 # tests
 ```
+
+### Interactive testing — MCP Inspector
+
+To poke at the tools without wiring the server into a client, use the MCP Inspector:
+
+```bash
+uv run mcp dev src/trello_mcp/server.py
+```
+
+This launches the server and opens a browser UI (proxy on a local port) where you can list tools, fill in arguments, and see the JSON responses. Make sure `.env` is set up first or the tools will error on the missing credentials.
 
 Install git hooks (optional) so ruff + pyright run on every commit:
 
