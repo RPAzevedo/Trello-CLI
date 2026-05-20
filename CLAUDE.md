@@ -1,6 +1,6 @@
 # trello-mcp — repo orientation for Claude Code
 
-Python MCP server exposing read-only Trello tools (`list_boards`, `list_lists`, `get_cards`) via FastMCP over stdio.
+Python MCP server exposing read-only Trello tools (`server_info`, `list_boards`, `list_lists`, `get_cards`) via FastMCP over stdio.
 
 ## Layout
 
@@ -25,6 +25,7 @@ Pre-commit hooks (ruff + pyright) are configured in `.pre-commit-config.yaml`; i
 
 - `uv run trello-mcp` — walks up from CWD for `.env`.
 - `uv run trello-mcp --env-file PATH` — explicit env file (what users put in MCP client configs).
+- `uv run trello-mcp --version` — print the installed package version and exit.
 - `TRELLO_MCP_ENV_FILE=PATH uv run mcp dev src/trello_mcp/server.py` — Inspector with an explicit env file (the flag doesn't apply because `mcp dev` imports the module instead of running the console script).
 - `uv run python scripts/call.py <tool> arg=value` — one-shot tool call from a shell.
 

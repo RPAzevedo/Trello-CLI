@@ -6,6 +6,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) server that lets an 
 
 | Tool | Arguments | Returns |
 | --- | --- | --- |
+| `server_info` | — | `{ name, version }` of the running server. Useful for confirming which build is installed. |
 | `list_boards` | — | Open boards the authenticated user can see (`id`, `name`, `url`) |
 | `list_lists` | `board_id` | Open lists on a board (`id`, `name`) |
 | `get_cards` | `list_id`, optional `since` (ISO 8601 UTC) | Cards on a list (`id`, `name`, `desc`, `due`, `due_complete`, `labels`, `url`, `member_ids`, `date_last_activity`). With `since`, only cards whose `date_last_activity` is at or after that timestamp. |
@@ -139,6 +140,34 @@ Each card carries a `date_last_activity` timestamp, and `get_cards` accepts an I
 > Summarize what changed on my "Work" board since yesterday.
 
 The model picks a `since` (e.g. `2026-05-19T00:00:00Z`), passes it to `get_cards` per list, and only the recently-touched cards come back.
+
+## 5. Check the installed version & update
+
+### If you installed via `uvx --from git+...` (the default above)
+
+There's no persistent binary — `uvx` runs the server fresh each time your client launches it. To see which version is currently being used, append `--version` to the same command:
+
+```bash
+uvx --from git+https://github.com/RPAzevedo/Trello-MCP.git trello-mcp --version
+# trello-mcp 0.2.0
+```
+
+To pull the latest changes from GitHub, force `uvx` to refresh its cache. The next client launch will pick up the new version automatically:
+
+```bash
+uvx --refresh --from git+https://github.com/RPAzevedo/Trello-MCP.git trello-mcp --version
+```
+
+### If you installed via `uv tool install` (persistent CLI)
+
+```bash
+trello-mcp --version            # show the installed version
+uv tool upgrade trello-mcp      # pull the latest
+```
+
+### From inside an MCP client
+
+When shell access isn't convenient, ask the model to call the `server_info` tool — it returns `{ "name": "trello-mcp", "version": "..." }`.
 
 ## Alternative install methods
 
