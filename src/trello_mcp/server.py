@@ -8,6 +8,8 @@ import httpx
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
+from trello_mcp import __version__
+
 # Resolved on import so non-CLI entry points (e.g. `mcp dev src/trello_mcp/server.py`,
 # programmatic imports) share the same env story as the console script.
 # Precedence: TRELLO_MCP_ENV_FILE env var > CWD-walk for `.env`. The console script's
@@ -47,6 +49,16 @@ async def _get(path: str, params: dict[str, Any] | None = None) -> Any:
         resp = await client.get(f"{TRELLO_API_BASE}{path}", params=merged)
         resp.raise_for_status()
         return resp.json()
+
+
+@mcp.tool()
+async def server_info() -> dict[str, str]:
+    """Return the running server's name and version.
+
+    Use this to confirm which build of trello-mcp is responding and whether an
+    upgrade is needed.
+    """
+    return {"name": "trello-mcp", "version": __version__}
 
 
 @mcp.tool()
@@ -120,6 +132,11 @@ async def get_cards(list_id: str, since: str | None = None) -> list[dict[str, An
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="trello-mcp")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"trello-mcp {__version__}",
+    )
     parser.add_argument(
         "--env-file",
         type=Path,

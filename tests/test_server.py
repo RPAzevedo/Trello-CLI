@@ -1,15 +1,21 @@
+from importlib.metadata import version
 from typing import Any
 
 import pytest
 
 from trello_mcp import server
-from trello_mcp.server import get_cards, mcp
+from trello_mcp.server import get_cards, mcp, server_info
 
 
 async def test_tools_are_registered() -> None:
     tools = await mcp.list_tools()
     names = {t.name for t in tools}
-    assert names == {"list_boards", "list_lists", "get_cards"}
+    assert names == {"server_info", "list_boards", "list_lists", "get_cards"}
+
+
+async def test_server_info_returns_package_version() -> None:
+    info = await server_info()
+    assert info == {"name": "trello-mcp", "version": version("trello-mcp")}
 
 
 def _patch_get(
