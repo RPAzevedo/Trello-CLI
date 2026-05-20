@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
@@ -20,17 +21,22 @@ if _explicit_env_file:
 else:
     load_dotenv()
 
+# httpx emits a per-request INFO line containing the full URL. Auth now travels in a
+# header so URLs are no longer sensitive, but silencing the line removes a future
+# footgun if any Trello path ever embeds identifying data in the URL itself.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 TRELLO_API_BASE = "https://api.trello.com/1"
 
 mcp = FastMCP("trello")
 
 
-def _auth_params() -> dict[str, str]:
+def _auth_header() -> dict[str, str]:
     key = os.environ.get("TRELLO_API_KEY")
     token = os.environ.get("TRELLO_TOKEN")
     if not key or not token:
         raise RuntimeError("TRELLO_API_KEY and TRELLO_TOKEN environment variables must be set")
-    return {"key": key, "token": token}
+    return {"Authorization": f'OAuth oauth_consumer_key="{key}", oauth_token="{token}"'}
 
 
 def _parse_iso8601(value: str) -> datetime:
@@ -44,9 +50,12 @@ def _parse_iso8601(value: str) -> datetime:
 
 
 async def _get(path: str, params: dict[str, Any] | None = None) -> Any:
-    merged = {**_auth_params(), **(params or {})}
     async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(f"{TRELLO_API_BASE}{path}", params=merged)
+        resp = await client.get(
+            f"{TRELLO_API_BASE}{path}",
+            params=params or {},
+            headers=_auth_header(),
+        )
         resp.raise_for_status()
         return resp.json()
 
