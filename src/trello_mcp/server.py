@@ -1,5 +1,6 @@
 import argparse
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,16 @@ def _auth_params() -> dict[str, str]:
     if not key or not token:
         raise RuntimeError("TRELLO_API_KEY and TRELLO_TOKEN environment variables must be set")
     return {"key": key, "token": token}
+
+
+def _parse_iso8601(value: str) -> datetime:
+    # datetime.fromisoformat in 3.10 doesn't accept the trailing "Z" Trello uses,
+    # and we must compare datetimes — not strings — because Trello returns
+    # millisecond precision (".000Z") while callers may pass second precision ("Z"),
+    # and lexicographic compare flips the boundary case.
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
 
 
 async def _get(path: str, params: dict[str, Any] | None = None) -> Any:
@@ -66,18 +77,29 @@ async def list_lists(board_id: str) -> list[dict[str, Any]]:
 
 
 @mcp.tool()
-async def get_cards(list_id: str) -> list[dict[str, Any]]:
+async def get_cards(list_id: str, since: str | None = None) -> list[dict[str, Any]]:
     """Get the cards on a Trello list.
 
     Args:
         list_id: The list id returned by list_lists.
+        since: Optional ISO 8601 UTC timestamp (e.g. "2026-05-19T00:00:00Z").
+            Only cards whose date_last_activity is at or after this time are
+            returned. Use this to build daily/recent-activity summaries.
 
-    Returns each card's id, name, description, due date, labels, url, and members.
+    Returns each card's id, name, description, due date, labels, url, members,
+    and date_last_activity (UTC ISO 8601, when Trello last recorded a change).
     """
     cards = await _get(
         f"/lists/{list_id}/cards",
-        {"fields": "name,desc,due,dueComplete,labels,url,idMembers,shortLink"},
+        {"fields": "name,desc,due,dueComplete,labels,url,idMembers,shortLink,dateLastActivity"},
     )
+    if since is not None:
+        since_dt = _parse_iso8601(since)
+        cards = [
+            c
+            for c in cards
+            if c.get("dateLastActivity") and _parse_iso8601(c["dateLastActivity"]) >= since_dt
+        ]
     return [
         {
             "id": c["id"],
@@ -90,6 +112,7 @@ async def get_cards(list_id: str) -> list[dict[str, Any]]:
             ],
             "url": c.get("url"),
             "member_ids": c.get("idMembers", []),
+            "date_last_activity": c.get("dateLastActivity"),
         }
         for c in cards
     ]

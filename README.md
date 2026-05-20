@@ -8,7 +8,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) server that lets an 
 | --- | --- | --- |
 | `list_boards` | — | Open boards the authenticated user can see (`id`, `name`, `url`) |
 | `list_lists` | `board_id` | Open lists on a board (`id`, `name`) |
-| `get_cards` | `list_id` | Cards on a list (`id`, `name`, `desc`, `due`, `due_complete`, `labels`, `url`, `member_ids`) |
+| `get_cards` | `list_id`, optional `since` (ISO 8601 UTC) | Cards on a list (`id`, `name`, `desc`, `due`, `due_complete`, `labels`, `url`, `member_ids`, `date_last_activity`). With `since`, only cards whose `date_last_activity` is at or after that timestamp. |
 
 The model discovers boards and lists by calling `list_boards` → `list_lists` → `get_cards`. Nothing is hard-coded — point it at any board/list you have access to.
 
@@ -132,6 +132,14 @@ Ask your client something like:
 
 The model will call `list_boards`, pick the matching board, call `list_lists` to find "Doing", and then `get_cards` to return the cards.
 
+### Daily summary
+
+Each card carries a `date_last_activity` timestamp, and `get_cards` accepts an ISO 8601 UTC `since` cutoff. That makes "what changed today?" prompts cheap:
+
+> Summarize what changed on my "Work" board since yesterday.
+
+The model picks a `since` (e.g. `2026-05-19T00:00:00Z`), passes it to `get_cards` per list, and only the recently-touched cards come back.
+
 ## Alternative install methods
 
 ### Install as a uv tool (persistent CLI on PATH)
@@ -208,6 +216,7 @@ uv run python scripts/call.py --list                          # list available t
 uv run python scripts/call.py list_boards                     # no arguments
 uv run python scripts/call.py list_lists board_id=abc123      # one argument
 uv run python scripts/call.py get_cards list_id=xyz789        # one argument
+uv run python scripts/call.py get_cards list_id=xyz789 since=2026-05-19T00:00:00Z  # recent activity only
 ```
 
 Output is the tool's JSON response, pretty-printed. Useful for ad-hoc inspection and shell pipelines (`uv run python scripts/call.py list_boards | jq '.[].name'`).
