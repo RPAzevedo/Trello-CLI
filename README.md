@@ -149,7 +149,7 @@ There's no persistent binary — `uvx` runs the server fresh each time your clie
 
 ```bash
 uvx --from git+https://github.com/RPAzevedo/Trello-MCP.git trello-mcp --version
-# trello-mcp 0.2.0
+# trello-mcp 0.2.1
 ```
 
 To pull the latest changes from GitHub, force `uvx` to refresh its cache. The next client launch will pick up the new version automatically:
