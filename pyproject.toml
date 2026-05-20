@@ -12,6 +12,11 @@ dependencies = [
 [project.scripts]
 trello-mcp = "trello_mcp.server:main"
 
+[project.urls]
+Homepage = "https://github.com/RPAzevedo/Trello-MCP"
+Repository = "https://github.com/RPAzevedo/Trello-MCP"
+Issues = "https://github.com/RPAzevedo/Trello-MCP/issues"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

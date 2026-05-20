@@ -1,11 +1,21 @@
+import argparse
 import os
+from pathlib import Path
 from typing import Any
 
 import httpx
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
-load_dotenv()
+# Resolved on import so non-CLI entry points (e.g. `mcp dev src/trello_mcp/server.py`,
+# programmatic imports) share the same env story as the console script.
+# Precedence: TRELLO_MCP_ENV_FILE env var > CWD-walk for `.env`. The console script's
+# --env-file flag layers on top via load_dotenv(..., override=True) inside main().
+_explicit_env_file = os.environ.get("TRELLO_MCP_ENV_FILE")
+if _explicit_env_file:
+    load_dotenv(_explicit_env_file, override=True)
+else:
+    load_dotenv()
 
 TRELLO_API_BASE = "https://api.trello.com/1"
 
@@ -86,6 +96,17 @@ async def get_cards(list_id: str) -> list[dict[str, Any]]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(prog="trello-mcp")
+    parser.add_argument(
+        "--env-file",
+        type=Path,
+        help="Path to .env file with TRELLO_API_KEY and TRELLO_TOKEN. "
+        "Equivalent to setting TRELLO_MCP_ENV_FILE. "
+        "If neither is given, walks up from the current directory looking for .env.",
+    )
+    args = parser.parse_args()
+    if args.env_file:
+        load_dotenv(args.env_file, override=True)
     mcp.run()
 
 

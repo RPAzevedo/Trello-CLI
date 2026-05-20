@@ -1,6 +1,6 @@
 # Trello MCP Server
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server that lets an MCP-aware client (Claude Desktop, Claude Code, etc.) read your Trello boards, lists, and cards.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that lets an MCP-aware client (Claude Code, Claude Desktop, Cursor, VS Code, Codex, etc.) read your Trello boards, lists, and cards.
 
 ## Tools
 
@@ -22,95 +22,153 @@ You need an **API key** and a **token**.
 
 Keep these secret. Treat the token like a password.
 
-## 2. Install
+## 2. Store credentials in a `.env` file
 
-Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/) (`brew install uv` on macOS).
-
-```bash
-git clone <this-repo> trello-mcp
-cd trello-mcp
-uv sync
-```
-
-`uv sync` creates `.venv/`, installs runtime + dev deps from `pyproject.toml`, and exposes a `trello-mcp` console script. Run the server directly with `uv run trello-mcp`.
-
-## 3. Configure credentials
-
-The server reads `TRELLO_API_KEY` and `TRELLO_TOKEN` from the environment. You have two options.
-
-### Option A — `.env` file (recommended for local use)
-
-Copy the template and fill in your key and token:
+Save them once at a canonical location so every MCP client can find them:
 
 ```bash
-cp .env.example .env
+mkdir -p ~/.config/trello-mcp
+cat > ~/.config/trello-mcp/.env <<EOF
+TRELLO_API_KEY=your_api_key_here
+TRELLO_TOKEN=your_token_here
+EOF
+chmod 600 ~/.config/trello-mcp/.env
 ```
 
-`.env` is git-ignored. The server auto-loads it on startup via `python-dotenv`, walking up from the current working directory. As long as your MCP client launches the server with `cwd` set to the project root (or you `cd` there before running), you're done — no need to put secrets in the client config.
+Every snippet below points `--env-file` at this file. Use a different path if you prefer — only the path is in the client config, never the secrets.
 
-### Option B — env vars in the MCP client config
+## 3. Quick install
 
-Pass them inline in your client's MCP server config (see next section).
+`uvx` runs the server straight from GitHub — no clone, no manual virtualenv. You'll need [uv](https://docs.astral.sh/uv/) (`brew install uv` on macOS).
 
-## 4. Configure your MCP client
+### Claude Code
+
+```bash
+claude mcp add trello -- uvx --from git+https://github.com/RPAzevedo/Trello-MCP.git \
+  trello-mcp --env-file "$HOME/.config/trello-mcp/.env"
+```
+
+No `--env` flags, so the token never lands in shell history. Restart Claude Code or run `/mcp` to confirm.
 
 ### Claude Desktop
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) and add:
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
 ```json
 {
   "mcpServers": {
     "trello": {
-      "command": "uv",
-      "args": ["--directory", "/absolute/path/to/trello-mcp", "run", "trello-mcp"]
+      "command": "uvx",
+      "args": [
+        "--from", "git+https://github.com/RPAzevedo/Trello-MCP.git",
+        "trello-mcp",
+        "--env-file", "/Users/you/.config/trello-mcp/.env"
+      ]
     }
   }
 }
 ```
 
-`uv --directory` sets the working directory before launching, so the `.env` file is picked up automatically. Restart Claude Desktop after editing.
+Restart Claude Desktop.
 
-If you'd rather keep secrets in the client config instead of `.env`, add an `env` block:
+### Cursor
+
+Edit `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per-project — `.gitignore` it if per-project):
 
 ```json
-"env": { "TRELLO_API_KEY": "...", "TRELLO_TOKEN": "..." }
+{
+  "mcpServers": {
+    "trello": {
+      "command": "uvx",
+      "args": [
+        "--from", "git+https://github.com/RPAzevedo/Trello-MCP.git",
+        "trello-mcp",
+        "--env-file", "/Users/you/.config/trello-mcp/.env"
+      ]
+    }
+  }
+}
 ```
 
-### Claude Code
+### VS Code
 
-```bash
-claude mcp add trello -- uv --directory /absolute/path/to/trello-mcp run trello-mcp
+Edit `.vscode/mcp.json` in the workspace:
+
+```json
+{
+  "servers": {
+    "trello": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from", "git+https://github.com/RPAzevedo/Trello-MCP.git",
+        "trello-mcp",
+        "--env-file", "${userHome}/.config/trello-mcp/.env"
+      ]
+    }
+  }
+}
 ```
 
-Or with inline env vars (skips `.env`):
+### Codex
 
-```bash
-claude mcp add trello \
-  --env TRELLO_API_KEY=your_key_here \
-  --env TRELLO_TOKEN=your_token_here \
-  -- /absolute/path/to/trello-mcp/.venv/bin/trello-mcp
+Edit `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.trello]
+command = "uvx"
+args = [
+  "--from", "git+https://github.com/RPAzevedo/Trello-MCP.git",
+  "trello-mcp",
+  "--env-file", "/Users/you/.config/trello-mcp/.env",
+]
 ```
 
-### Any other MCP client
+## 4. Try it
 
-Run the binary as a stdio server from the project directory (so `.env` is found):
-
-```bash
-cd /absolute/path/to/trello-mcp && uv run trello-mcp
-```
-
-## 5. Try it
-
-In your client, ask something like:
+Ask your client something like:
 
 > List my Trello boards, then show me the cards on the "Doing" list of my "Work" board.
 
 The model will call `list_boards`, pick the matching board, call `list_lists` to find "Doing", and then `get_cards` to return the cards.
 
+## Alternative install methods
+
+### Install as a uv tool (persistent CLI on PATH)
+
+If you want `trello-mcp` as a real command (for shell scripts, the MCP Inspector, or just shorter client configs):
+
+```bash
+uv tool install git+https://github.com/RPAzevedo/Trello-MCP.git
+# upgrade later
+uv tool upgrade trello-mcp
+```
+
+Client configs can then drop `uvx --from ...` and use `"command": "trello-mcp"` directly. Still pass `--env-file`.
+
+### Clone for development
+
+```bash
+git clone https://github.com/RPAzevedo/Trello-MCP.git trello-mcp
+cd trello-mcp
+uv sync
+cp .env.example .env  # then fill in your key and token
+uv run trello-mcp
+```
+
+With no `--env-file`, the server walks up from CWD looking for `.env`, so a repo-local `.env` keeps working. Client configs pointed at a checkout can still use the `uv --directory /path/to/trello-mcp run trello-mcp` form if you'd rather run from a clone than via `uvx`.
+
+## Security notes
+
+- The `.env` file is plaintext; filesystem permissions are the only barrier. Keep it `chmod 600` and out of any synced folder (Dropbox, iCloud Documents).
+- Mint a token dedicated to this MCP rather than reusing one tied to other tools. Pass `?expiration=30days` when authorizing so a leak has a fuse, and rotate periodically.
+- Revoke tokens at <https://trello.com/your/account> → Applications.
+- Trello tokens can't be scoped read-only — they grant full read/write on every board the authorizing user can see. Treat them accordingly.
+- If you use a secret manager, prefer `op run --env-file=op.env -- uvx ... trello-mcp` (1Password CLI) or `pass`-piped equivalents over a long-lived plaintext `.env`.
+
 ## Troubleshooting
 
-- **`TRELLO_API_KEY and TRELLO_TOKEN environment variables must be set`** — your MCP client isn't passing them through. Re-check the `env` block in the client config.
+- **`TRELLO_API_KEY and TRELLO_TOKEN environment variables must be set`** — the server can't see the env file. Confirm `--env-file` points at the right path (absolute, not `~`-relative in JSON; expand `$HOME` first if your client doesn't).
 - **401 Unauthorized** — the token is wrong, expired, or was generated against a different API key. Re-issue both from the Power-Up admin page.
 - **Empty board list** — the token only sees boards the authorizing user can see. If you expected a team board, make sure that user is a member.
 
@@ -129,13 +187,17 @@ uv run pytest                 # tests
 
 ### Interactive testing — MCP Inspector
 
-To poke at the tools without wiring the server into a client, use the MCP Inspector:
+To poke at the tools without wiring the server into a client:
 
 ```bash
+# Repo-local .env (created by `cp .env.example .env` above):
 uv run mcp dev src/trello_mcp/server.py
+
+# Or point at the centralized file used by your MCP clients:
+TRELLO_MCP_ENV_FILE=~/.config/trello-mcp/.env uv run mcp dev src/trello_mcp/server.py
 ```
 
-This launches the server and opens a browser UI (proxy on a local port) where you can list tools, fill in arguments, and see the JSON responses. Make sure `.env` is set up first or the tools will error on the missing credentials.
+`mcp dev` imports the server module instead of running the console script, so the `--env-file` CLI flag doesn't apply — use `TRELLO_MCP_ENV_FILE` or a repo-local `.env` instead. Both `--env-file` and `TRELLO_MCP_ENV_FILE` resolve to the same path; either works.
 
 ### Terminal client — `scripts/call.py`
 
