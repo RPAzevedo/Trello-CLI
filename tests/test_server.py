@@ -1,10 +1,11 @@
 from importlib.metadata import version
 from typing import Any
 
+import httpx
 import pytest
 
 from trello_mcp import server
-from trello_mcp.server import get_cards, mcp, server_info
+from trello_mcp.server import get_cards, list_boards, mcp, server_info
 
 
 async def test_tools_are_registered() -> None:
@@ -16,6 +17,39 @@ async def test_tools_are_registered() -> None:
 async def test_server_info_returns_package_version() -> None:
     info = await server_info()
     assert info == {"name": "trello-mcp", "version": version("trello-mcp")}
+
+
+async def test_auth_travels_in_header_not_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TRELLO_API_KEY", "test-key")
+    monkeypatch.setenv("TRELLO_TOKEN", "test-token")
+
+    captured: dict[str, Any] = {}
+
+    class _FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> list[dict[str, Any]]:
+            return []
+
+    async def fake_get(self: httpx.AsyncClient, url: str, **kwargs: Any) -> _FakeResponse:
+        captured["url"] = url
+        captured["params"] = kwargs.get("params")
+        captured["headers"] = kwargs.get("headers")
+        return _FakeResponse()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    await list_boards()
+
+    assert "key=" not in captured["url"]
+    assert "token=" not in captured["url"]
+    params = captured["params"] or {}
+    assert "key" not in params
+    assert "token" not in params
+    headers = captured["headers"] or {}
+    assert headers.get("Authorization", "").startswith('OAuth oauth_consumer_key="test-key"')
+    assert 'oauth_token="test-token"' in headers["Authorization"]
 
 
 def _patch_get(
